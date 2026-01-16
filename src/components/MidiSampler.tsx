@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
-type PadBinding = { keys: string[]; midis: number[] };
+type PadBinding = { keys: string[]; midis: number[]; ccs: number[] };
 type PadBindings = Record<number, PadBinding>; // target midi -> bindings
 
 function midiNumberToName(n: number) {
@@ -16,6 +16,27 @@ function midiNumberToName(n: number) {
   const name = names[n % 12];
   return `${name}${octave}`;
 }
+
+function ccNumberToName(cc: number) {
+  switch (cc) {
+    case MidiCC.FootController:
+      return 'Foot Ctrl (CC 4)';
+    case MidiCC.SustainPedal:
+      return 'Sustain (CC 64)';
+    default:
+      return `CC ${cc}`;
+  }
+}
+
+function normalizeBinding(binding?: Partial<PadBinding> | null): PadBinding {
+  return {
+    keys: binding?.keys ?? [],
+    midis: binding?.midis ?? [],
+    ccs: binding?.ccs ?? [],
+  };
+}
+
+const CC_TRIGGER_THRESHOLD = 64;
 
 export default function MidiSampler() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -29,14 +50,17 @@ export default function MidiSampler() {
   const [modalForMidi, setModalForMidi] = useState<number | null>(null); // target pad midi
   const [listenKeyForMidi, setListenKeyForMidi] = useState<number | null>(null);
   const [listenMidiForMidi, setListenMidiForMidi] = useState<number | null>(null); // target pad midi we capture for
+  const [listenCcForMidi, setListenCcForMidi] = useState<number | null>(null);
   const [conflictKey, setConflictKey] = useState<string | null>(null);
   const [conflictMidi, setConflictMidi] = useState<{ note: number; ownerLabel: string } | null>(null);
+  const [conflictCc, setConflictCc] = useState<{ cc: number; ownerLabel: string } | null>(null);
   // no crash/snare variant toggles for now
 
   // Refs to always read latest data inside MIDI handler without stale closures
   const bindingsRef = useRef<PadBindings>({});
   const defaultMidiSetRef = useRef<Set<number>>(new Set());
   const audioReadyRef = useRef<boolean>(false);
+  const ccDownRef = useRef<Record<number, boolean>>({});
 
   useEffect(() => {
     audioReadyRef.current = audioReady;
@@ -66,6 +90,7 @@ export default function MidiSampler() {
     let disposed = false;
     let disposer: { dispose: () => void } | null = null;
     let ccDisposer: { dispose: () => void } | null = null;
+    ccDownRef.current = {};
     if (!selectedId) return () => {};
     (async () => {
       try {
@@ -95,7 +120,7 @@ export default function MidiSampler() {
             }
             setBindings(prev => {
               const t = listenMidiForMidi;
-              const cur = prev[t] || { keys: [], midis: [] };
+              const cur = normalizeBinding(prev[t]);
               // ignore if trying to add its own default midi
               if (note === t) return prev;
               if (!cur.midis.includes(note)) {
@@ -131,6 +156,51 @@ export default function MidiSampler() {
         ccDisposer = await initMidiCcListenerForInput(selectedId, (cc, val) => {
           if (disposed) return;
           if (cc === MidiCC.FootController) setHiHatOpenByCC4(val);
+          if (listenCcForMidi != null && val > 0) {
+            let ownerLabel: string | null = null;
+            for (const [m, b] of Object.entries(bindingsRef.current)) {
+              const target = Number(m);
+              if (target !== listenCcForMidi && (b?.ccs || []).includes(cc)) {
+                ownerLabel = midiToLabel[target] || 'another sound';
+                break;
+              }
+            }
+            if (ownerLabel) {
+              setConflictCc({ cc, ownerLabel });
+              setListenCcForMidi(null);
+              return;
+            }
+            setBindings(prev => {
+              const t = listenCcForMidi;
+              const cur = normalizeBinding(prev[t]);
+              if (!cur.ccs.includes(cc)) {
+                const next = { ...prev, [t]: { ...cur, ccs: [...cur.ccs, cc] } } as PadBindings;
+                try { localStorage.setItem(BINDING_KEY, JSON.stringify(next)); } catch {}
+                return next;
+              }
+              return prev;
+            });
+            setListenCcForMidi(null);
+            return;
+          }
+          const getResolvedIncomingCc = (incoming: number) => {
+            for (const [targetStr, b] of Object.entries(bindingsRef.current)) {
+              if (b?.ccs?.includes(incoming)) return Number(targetStr);
+            }
+            return null;
+          };
+          const resolved = getResolvedIncomingCc(cc);
+          const isDown = val >= CC_TRIGGER_THRESHOLD;
+          const wasDown = ccDownRef.current[cc] || false;
+          ccDownRef.current[cc] = isDown;
+          if (!isDown || wasDown || resolved == null) return;
+          const pad = midiNoteToPad(resolved);
+          if (pad) {
+            setFlashPad(pad);
+            setTimeout(() => setFlashPad(prev => (prev === pad ? null : prev)), 120);
+          }
+          if (!audioReadyRef.current) return;
+          void triggerMidi(resolved, Math.max(1, Math.min(127, val)));
         });
       } catch (e: any) {
         setError(e?.message || String(e));
@@ -145,7 +215,7 @@ export default function MidiSampler() {
         ccDisposer?.dispose();
       } catch {}
     };
-  }, [selectedId, listenMidiForMidi]);
+  }, [selectedId, listenMidiForMidi, listenCcForMidi]);
 
   const allPads = useMemo(() => listDrumPads(), []);
   const order: DrumPad[] = [
@@ -167,6 +237,7 @@ export default function MidiSampler() {
         setModalForMidi(midi);
         setConflictKey(null);
         setConflictMidi(null);
+        setConflictCc(null);
       }
       return;
     }
@@ -183,7 +254,12 @@ export default function MidiSampler() {
   const [bindings, setBindings] = useState<PadBindings>(() => {
     try {
       const raw = localStorage.getItem(BINDING_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<number, Partial<PadBinding>>;
+        return Object.fromEntries(
+          Object.entries(parsed).map(([m, b]) => [Number(m), normalizeBinding(b)])
+        ) as PadBindings;
+      }
     } catch {}
     // migrate legacy midiToKeys if present
     let migrated: PadBindings | null = null;
@@ -192,7 +268,7 @@ export default function MidiSampler() {
       if (legacy) {
         const parsed: Record<number, string[]> = JSON.parse(legacy);
         migrated = Object.fromEntries(
-          Object.entries(parsed).map(([m, keys]) => [Number(m), { keys: keys || [], midis: [] }])
+          Object.entries(parsed).map(([m, keys]) => [Number(m), { keys: keys || [], midis: [], ccs: [] }])
         ) as PadBindings;
       }
     } catch {}
@@ -291,8 +367,10 @@ export default function MidiSampler() {
                       if (!ok) return;
                       setListenKeyForMidi(null);
                       setListenMidiForMidi(null);
+                      setListenCcForMidi(null);
                       setConflictKey(null);
                       setConflictMidi(null);
+                      setConflictCc(null);
                       persistBindings({});
                     }}
                   >
@@ -357,7 +435,7 @@ export default function MidiSampler() {
               </div>
               <button
                 className="text-muted-foreground hover:text-foreground"
-                onClick={() => { setModalForMidi(null); setListenKeyForMidi(null); setListenMidiForMidi(null); setConflictKey(null); setConflictMidi(null); }}
+                onClick={() => { setModalForMidi(null); setListenKeyForMidi(null); setListenMidiForMidi(null); setListenCcForMidi(null); setConflictKey(null); setConflictMidi(null); setConflictCc(null); }}
               >
                 ×
               </button>
@@ -377,8 +455,11 @@ export default function MidiSampler() {
                     }
                     onClick={() => {
                       setListenMidiForMidi(null);
+                      setListenCcForMidi(null);
                       setListenKeyForMidi(modalForMidi);
                       setConflictKey(null);
+                      setConflictMidi(null);
+                      setConflictCc(null);
                       const once = (e: KeyboardEvent) => {
                         const k = e.key.toLowerCase();
                         e.preventDefault();
@@ -388,7 +469,7 @@ export default function MidiSampler() {
                           setListenKeyForMidi(null);
                           return;
                         }
-                        const cur = bindings[modalForMidi] || { keys: [], midis: [] };
+                        const cur = normalizeBinding(bindings[modalForMidi]);
                         if (!cur.keys.includes(k)) {
                           const next = { ...bindings, [modalForMidi]: { ...cur, keys: [...cur.keys, k] } } as PadBindings;
                           persistBindings(next);
@@ -409,7 +490,7 @@ export default function MidiSampler() {
                         aria-label="Remove"
                         className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full border border-accent/60 text-accent hover:bg-accent/20"
                         onClick={() => {
-                          const cur = bindings[modalForMidi] || { keys: [], midis: [] };
+                          const cur = normalizeBinding(bindings[modalForMidi]);
                           const next = { ...bindings, [modalForMidi]: { ...cur, keys: cur.keys.filter(x => x !== k) } } as PadBindings;
                           persistBindings(next);
                         }}
@@ -439,8 +520,10 @@ export default function MidiSampler() {
                     onClick={() => {
                       if (!selectedId) return;
                       setListenKeyForMidi(null);
+                      setListenCcForMidi(null);
                       setConflictKey(null);
                       setConflictMidi(null);
+                      setConflictCc(null);
                       setListenMidiForMidi(modalForMidi);
                     }}
                   >
@@ -458,7 +541,7 @@ export default function MidiSampler() {
                         aria-label="Remove"
                         className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full border border-border text-muted-foreground hover:bg-muted"
                         onClick={() => {
-                          const cur = bindings[modalForMidi] || { keys: [], midis: [] };
+                          const cur = normalizeBinding(bindings[modalForMidi]);
                           const next = { ...bindings, [modalForMidi]: { ...cur, midis: cur.midis.filter(x => x !== n) } } as PadBindings;
                           persistBindings(next);
                         }}
@@ -473,13 +556,66 @@ export default function MidiSampler() {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[15px] sm:text-base font-semibold">MIDI CC</div>
+                  <button
+                    aria-label="Add MIDI CC binding"
+                    className={
+                      'inline-flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full border ' +
+                      (listenCcForMidi === modalForMidi
+                        ? 'bg-primary/90 border-primary text-primary-foreground'
+                        : (selectedId ? 'bg-transparent border-accent/50 text-accent hover:bg-accent/10' : 'bg-transparent border-border text-muted-foreground cursor-not-allowed'))
+                    }
+                    disabled={!selectedId}
+                    onClick={() => {
+                      if (!selectedId) return;
+                      setListenKeyForMidi(null);
+                      setListenMidiForMidi(null);
+                      setListenCcForMidi(modalForMidi);
+                      setConflictKey(null);
+                      setConflictMidi(null);
+                      setConflictCc(null);
+                    }}
+                  >
+                    <span className="text-lg leading-none">+</span>
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 content-start items-center min-h-[72px]">
+                  {(bindings[modalForMidi]?.ccs || []).map(cc => (
+                    <span key={cc} className="whitespace-nowrap text-sm md:text-base bg-secondary/70 border border-border text-foreground rounded-full h-8 px-3 inline-flex items-center gap-2">
+                      {ccNumberToName(cc)}
+                      <button
+                        aria-label="Remove"
+                        className="inline-flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full border border-border text-muted-foreground hover:bg-muted"
+                        onClick={() => {
+                          const cur = normalizeBinding(bindings[modalForMidi]);
+                          const next = { ...bindings, [modalForMidi]: { ...cur, ccs: cur.ccs.filter(x => x !== cc) } } as PadBindings;
+                          persistBindings(next);
+                        }}
+                      >
+                        <span className="-mt-[1px]">×</span>
+                      </button>
+                    </span>
+                  ))}
+                  {!(bindings[modalForMidi]?.ccs || []).length && (
+                    <span className="h-8 inline-flex items-center text-xs text-muted-foreground">No mapping</span>
+                  )}
+                </div>
+              </div>
+
               <div className="pt-1 min-h-6">
                 {conflictMidi && (
                   <div className="text-xs text-primary">
                     Warning: MIDI note {midiNumberToName(conflictMidi.note)} ({conflictMidi.note}) is already used by {conflictMidi.ownerLabel}.
                   </div>
                 )}
-                {!conflictMidi && conflictKey && (
+                {!conflictMidi && conflictCc && (
+                  <div className="text-xs text-primary">
+                    Warning: {ccNumberToName(conflictCc.cc)} is already used by {conflictCc.ownerLabel}.
+                  </div>
+                )}
+                {!conflictMidi && !conflictCc && conflictKey && (
                   <div className="text-xs text-primary">Warning: key "{conflictKey.toUpperCase()}" is already used by another sound.</div>
                 )}
               </div>
@@ -489,7 +625,7 @@ export default function MidiSampler() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setModalForMidi(null); setListenKeyForMidi(null); setListenMidiForMidi(null); setConflictKey(null); setConflictMidi(null); }}
+                onClick={() => { setModalForMidi(null); setListenKeyForMidi(null); setListenMidiForMidi(null); setListenCcForMidi(null); setConflictKey(null); setConflictMidi(null); setConflictCc(null); }}
               >
                 Close
               </Button>

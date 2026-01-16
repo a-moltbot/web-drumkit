@@ -49,6 +49,7 @@ export enum MidiDrum {
 // MIDI Control Change semantics used
 export enum MidiCC {
   FootController = 4,
+  SustainPedal = 64,
 }
 
 // One place to convert semantic pads <-> MIDI notes
