@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { ensureAudioStarted } from './sampler';
+import { configureLowLatencyTone } from './toneConfig';
 
 type Subscriber = (beatIndex: number, barIndex: number) => void;
 
@@ -23,6 +24,7 @@ let out: Tone.Gain | null = null;
 
 function init() {
   if (initialized) return;
+  configureLowLatencyTone();
   out = new Tone.Gain(0.9).toDestination();
   clickHigh = new Tone.MembraneSynth({ octaves: 2, pitchDecay: 0.005, envelope: { attack: 0.001, decay: 0.08, sustain: 0 } }).connect(out);
   clickLow = new Tone.MembraneSynth({ octaves: 2, pitchDecay: 0.008, envelope: { attack: 0.001, decay: 0.12, sustain: 0 } }).connect(out);
