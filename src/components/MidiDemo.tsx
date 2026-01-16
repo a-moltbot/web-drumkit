@@ -71,7 +71,7 @@ export default function MidiDemo() {
   return (
     <div className="w-full max-w-xl mx-auto space-y-4">
       <h2 className="text-2xl font-semibold">MIDI Input Demo</h2>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-muted-foreground">
         Connect a MIDI keyboard/controller and press some notes. We display the
         current note and velocity from Note On/Off messages.
       </p>
@@ -88,7 +88,7 @@ export default function MidiDemo() {
           }));
         }}
       />
-      <div className="rounded border border-gray-700 p-4 grid grid-cols-2 gap-3">
+      <div className="rounded-xl border border-border/70 bg-background/70 p-4 grid grid-cols-2 gap-3 shadow-sm">
         <Info label="Supported" value={supported ? 'Yes' : 'No'} />
         <Info label="Device" value={evt.device ?? (selectedId ? selectedId : '-')} />
         <Info label="Note" value={evt.note ?? '-'} />
@@ -97,7 +97,7 @@ export default function MidiDemo() {
         <Info label="Bytes" value={evt.bytes ?? '-'} mono />
       </div>
       {error && (
-        <div className="text-red-400 text-sm">Error: {error}</div>
+        <div className="text-destructive text-sm">Error: {error}</div>
       )}
     </div>
   );
@@ -114,7 +114,7 @@ function Info({
 }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs uppercase tracking-wide text-gray-400">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className={mono ? 'font-mono text-lg' : 'text-lg font-medium'}>
         {value}
       </span>

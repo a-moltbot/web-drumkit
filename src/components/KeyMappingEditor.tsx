@@ -36,20 +36,20 @@ export const KeyMappingEditor: React.FC<Props> = ({ pads, value, onChange }) => 
   };
 
   return (
-    <div className="w-full max-w-3xl rounded border border-slate-600 p-4 bg-slate-900/50">
+    <div className="w-full max-w-3xl rounded-xl border border-border/70 p-4 bg-background/70 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold">Key Mapping</h2>
         {listeningFor != null && (
-          <div className="text-xs text-amber-300">Press any key to map…</div>
+          <div className="text-xs text-primary">Press any key to map…</div>
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {pads.map((p) => (
-          <div key={p.id} className="rounded border border-slate-700 p-3">
+          <div key={p.id} className="rounded-xl border border-border/70 bg-background/80 p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium">{p.label}</div>
               <button
-                className="text-xs px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500"
+                className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => setListeningFor(p.midi)}
               >
                 {listeningFor === p.midi ? 'Listening…' : 'Add key'}
@@ -57,11 +57,11 @@ export const KeyMappingEditor: React.FC<Props> = ({ pads, value, onChange }) => 
             </div>
             <div className="flex flex-wrap gap-2">
               {(value[p.midi] || []).map((k) => (
-                <span key={k} className="text-xs bg-slate-800 border border-slate-600 rounded px-2 py-0.5 inline-flex items-center gap-1">
+                <span key={k} className="text-xs bg-muted border border-border rounded px-2 py-0.5 inline-flex items-center gap-1">
                   {k.toUpperCase()}
                   <button
                     aria-label="Remove"
-                    className="ml-1 opacity-70 hover:opacity-100"
+                    className="ml-1 opacity-70 hover:opacity-100 text-muted-foreground"
                     onClick={() => removeKey(p.midi, k)}
                   >
                     ×
@@ -69,16 +69,15 @@ export const KeyMappingEditor: React.FC<Props> = ({ pads, value, onChange }) => 
                 </span>
               ))}
               {value[p.midi]?.length ? null : (
-                <span className="text-xs text-slate-400">No keys mapped</span>
+                <span className="text-xs text-muted-foreground">No keys mapped</span>
               )}
             </div>
           </div>
         ))}
       </div>
-      <div className="text-[11px] text-slate-400 mt-3">
+      <div className="text-[11px] text-muted-foreground mt-3">
         Tip: You can map multiple keys to the same drum to play faster. Mapping a key moves it from any other drum.
       </div>
     </div>
   );
 };
-

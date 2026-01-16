@@ -44,8 +44,8 @@ export default function BeatVolumeBar({ value, current = false, onChange, height
       <div
         ref={containerRef}
         className={
-          'relative w-8 rounded-md bg-gray-800 border border-gray-700 cursor-pointer select-none overflow-hidden ' +
-          (current ? 'ring-2 ring-indigo-500/50' : '')
+          'relative w-8 rounded-md bg-background/80 border border-border/70 cursor-pointer select-none overflow-hidden shadow-inner ' +
+          (current ? 'ring-2 ring-accent/50' : '')
         }
         style={{ height, touchAction: 'none' as any }}
         onPointerDown={(e) => {
@@ -74,11 +74,10 @@ export default function BeatVolumeBar({ value, current = false, onChange, height
       >
         <div
           ref={fillRef}
-          className="absolute bottom-0 left-0 right-0  bg-indigo-500 will-change-transform"
+          className="absolute bottom-0 left-0 right-0 bg-accent will-change-transform"
           style={{ height: '100%', transformOrigin: 'bottom', transform: `scaleY(${value})` }}
         />
       </div>
     </div>
   );
 }
-

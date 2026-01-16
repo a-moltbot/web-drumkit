@@ -23,13 +23,15 @@ export const DrumPad: React.FC<Props> = ({ label, midi, trigger, stop, hotkey, a
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
       className={
-        `relative aspect-square w-24 rounded-lg border transition select-none ` +
-        (active ? 'bg-indigo-600 border-indigo-400 scale-95' : 'bg-slate-800 border-slate-600 hover:bg-slate-700')
+        `relative aspect-square w-24 rounded-xl border transition select-none shadow-sm ` +
+        (active
+          ? 'bg-accent text-accent-foreground border-accent scale-95'
+          : 'bg-background/80 border-border hover:border-accent/60 hover:bg-accent/10')
       }
     >
       <span className="block text-sm font-semibold">{label}</span>
       {hotkey && (
-        <span className="absolute bottom-1 right-2 text-xs text-slate-300 opacity-80">
+        <span className="absolute bottom-1 right-2 text-xs text-muted-foreground opacity-80">
           {hotkey.toUpperCase()}
         </span>
       )}

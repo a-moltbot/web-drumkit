@@ -129,11 +129,18 @@ const HH_CLOSED_RELEASE = 0.16; // short but audible tick
 const HH_PEDAL_RELEASE = 0.10;  // foot chick
 
 export async function ensureAudioStarted() {
-  if (Tone.getContext().state !== 'running') {
-    try {
-      await Tone.start();
-    } catch {}
+  configureLowLatencyTone();
+  let ctx = Tone.getContext();
+  if (ctx.state === 'closed') {
+    const next = new Tone.Context({ latencyHint: 'interactive' });
+    Tone.setContext(next);
+    ctx = Tone.getContext();
   }
+  if (ctx.state === 'running') return true;
+  try {
+    await Tone.start();
+  } catch {}
+  return Tone.getContext().state === 'running';
 }
 
 function ensureSynth() {
@@ -158,7 +165,6 @@ export function isUsingFallback() {
 }
 
 export async function getDrumSampler() {
-  configureLowLatencyTone();
   if (useSynthFallback) {
     ensureSynth();
     // Return a dummy promise to keep callers simple
@@ -195,7 +201,8 @@ export function midiNoteToPad(noteNumber: number): DrumPad | null {
 
 export async function triggerPad(pad: DrumPad, velocity: number) {
   const vel = Math.max(0, Math.min(1, velocity / 127));
-  await ensureAudioStarted();
+  const ready = await ensureAudioStarted();
+  if (!ready) return;
   await getDrumSampler();
   // Hi-hat is monophonic: new event chokes previous
   if (pad === DrumPad.HiHatClosed || pad === DrumPad.HiHatOpen || pad === DrumPad.HiHatPedal) {

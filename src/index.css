@@ -2,12 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global styles */
-:root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  :root {
+    --background: 28 100% 96%;
+    --foreground: 222 28% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 28% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 28% 14%;
+    --primary: 18 92% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 185 60% 92%;
+    --secondary-foreground: 222 28% 14%;
+    --muted: 25 35% 90%;
+    --muted-foreground: 222 12% 40%;
+    --accent: 188 72% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 74% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 26 20% 82%;
+    --input: 24 30% 88%;
+    --ring: 18 92% 52%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased font-sans;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 85% 10%, hsl(var(--accent) / 0.25), transparent 45%),
+    radial-gradient(circle at 10% 80%, hsl(var(--primary) / 0.25), transparent 50%),
+    linear-gradient(120deg, hsl(var(--background)) 0%, #fff7eb 40%, #fef3d6 100%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: hsl(var(--accent) / 0.25);
+  color: hsl(var(--foreground));
 }
 
 /* Remove default number input spinners */
@@ -35,12 +75,12 @@ input[type=range].slider:focus {
 /* Track */
 input[type=range].slider::-webkit-slider-runnable-track {
   height: 12px;
-  background: linear-gradient(to right, #6366f1 0 var(--val, 0%), #374151 var(--val, 0%) 100%);
+  background: linear-gradient(to right, hsl(var(--accent)) 0 var(--val, 0%), hsl(var(--border)) var(--val, 0%) 100%);
   border-radius: 9999px;
 }
 input[type=range].slider::-moz-range-track {
   height: 12px;
-  background: linear-gradient(to right, #6366f1 0 var(--val, 0%), #374151 var(--val, 0%) 100%);
+  background: linear-gradient(to right, hsl(var(--accent)) 0 var(--val, 0%), hsl(var(--border)) var(--val, 0%) 100%);
   border-radius: 9999px;
 }
 
@@ -52,7 +92,7 @@ input[type=range].slider::-webkit-slider-thumb {
   height: 20px;
   margin-top: -4px; /* centers on 12px track */
   background: #ffffff;
-  border: 2px solid #6366f1; /* indigo-500 */
+  border: 2px solid hsl(var(--accent));
   border-radius: 9999px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
@@ -60,7 +100,7 @@ input[type=range].slider::-moz-range-thumb {
   width: 20px;
   height: 20px;
   background: #ffffff;
-  border: 2px solid #6366f1;
+  border: 2px solid hsl(var(--accent));
   border-radius: 9999px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }

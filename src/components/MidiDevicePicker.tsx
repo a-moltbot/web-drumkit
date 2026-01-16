@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getMIDIAccess, listMidiInputs } from '../midi/midi';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 type Props = {
   onSelect: (id: string, device: WebMidi.MIDIInput | null) => void;
@@ -74,28 +76,25 @@ export default function MidiDevicePicker({ onSelect }: Props) {
   };
 
   const content = useMemo(() => {
-    if (!supported) return <p className="text-sm text-gray-500">Web MIDI not supported.</p>;
-    if (error) return <p className="text-sm text-red-400">{error}</p>;
+    if (!supported) return <p className="text-sm text-muted-foreground">Web MIDI not supported.</p>;
+    if (error) return <p className="text-sm text-destructive">{error}</p>;
     if (!devices.length)
-      return <p className="text-sm text-gray-500">No MIDI inputs found.</p>;
+      return <p className="text-sm text-muted-foreground">No MIDI inputs found.</p>;
     return (
       <div className="flex flex-wrap gap-2">
         {devices.map(d => {
           const isSelected = d.id === selectedId;
           return (
-            <button
+            <Button
               key={d.id}
               onClick={() => handleClick(d.id)}
-              className={
-                'px-3 py-2 rounded border text-sm transition ' +
-                (isSelected
-                  ? 'border-indigo-500 text-white bg-indigo-600/10'
-                  : 'border-gray-700 text-gray-400 hover:text-gray-300 hover:border-gray-500')
-              }
+              variant={isSelected ? 'accent' : 'outline'}
+              size="sm"
+              className={isSelected ? 'shadow-sm' : 'bg-background/70'}
               title={d.manufacturer ? `${d.manufacturer} ${d.name ?? ''}` : d.name ?? d.id}
             >
               {d.name ?? d.id}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -109,19 +108,20 @@ export default function MidiDevicePicker({ onSelect }: Props) {
         <div className="flex items-center gap-2">
           {selectedId ? (
             <>
-              <span className="text-xs text-indigo-400">Selected</span>
-              <button
-                className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white"
+              <Badge variant="accent">Selected</Badge>
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => {
                   setSelectedId(null);
                   onSelect('', null);
                 }}
               >
                 Clear
-              </button>
+              </Button>
             </>
           ) : (
-            <span className="text-xs text-gray-500">Not selected</span>
+            <Badge variant="secondary">Not selected</Badge>
           )}
         </div>
       </div>
