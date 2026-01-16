@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { configureLowLatencyTone } from './toneConfig';
 
 // Primary note names used by our sample set
 type NoteName =
@@ -157,6 +158,7 @@ export function isUsingFallback() {
 }
 
 export async function getDrumSampler() {
+  configureLowLatencyTone();
   if (useSynthFallback) {
     ensureSynth();
     // Return a dummy promise to keep callers simple
@@ -202,47 +204,48 @@ export async function triggerPad(pad: DrumPad, velocity: number) {
   if (useSynthFallback) {
     const voice = padToVoice(pad);
     const bus = ensureSynth();
+    const now = Tone.immediate();
     switch (voice) {
       case 'kick':
-        bus.kick.triggerAttackRelease(50, '8n', Tone.now(), vel);
+        bus.kick.triggerAttackRelease(50, '8n', now, vel);
         break;
       case 'snare':
-        bus.snare.triggerAttackRelease('16n', Tone.now(), vel);
+        bus.snare.triggerAttackRelease('16n', now, vel);
         break;
       case 'hhOpen': {
         const decay = HH_OPEN_DEFAULT;
         bus.hat.envelope.decay = decay;
-        bus.hat.triggerAttackRelease(decay, Tone.now(), 0.5 + vel * 0.5);
+        bus.hat.triggerAttackRelease(decay, now, 0.5 + vel * 0.5);
         break;
       }
       case 'hhClosed':
       case 'hhPedal': {
         const decay = HH_CLOSED_RELEASE;
         bus.hat.envelope.decay = decay;
-        bus.hat.triggerAttackRelease(decay, Tone.now(), 0.4 + vel * 0.6);
+        bus.hat.triggerAttackRelease(decay, now, 0.4 + vel * 0.6);
         break;
       }
       case 'crash':
         bus.cym.envelope.decay = 1.6;
-        bus.cym.triggerAttackRelease('2n', Tone.now(), 0.4 + vel * 0.6);
+        bus.cym.triggerAttackRelease('2n', now, 0.4 + vel * 0.6);
         break;
       case 'ride':
         bus.cym.envelope.decay = 0.6;
-        bus.cym.triggerAttackRelease('8n', Tone.now(), 0.4 + vel * 0.6);
+        bus.cym.triggerAttackRelease('8n', now, 0.4 + vel * 0.6);
         break;
       case 'tomHigh':
-        bus.tomHigh.triggerAttackRelease(220, '8n', Tone.now(), vel);
+        bus.tomHigh.triggerAttackRelease(220, '8n', now, vel);
         break;
       case 'tomMid':
-        bus.tomMid.triggerAttackRelease(180, '8n', Tone.now(), vel);
+        bus.tomMid.triggerAttackRelease(180, '8n', now, vel);
         break;
       case 'tomFloor':
-        bus.tomFloor.triggerAttackRelease(140, '8n', Tone.now(), vel);
+        bus.tomFloor.triggerAttackRelease(140, '8n', now, vel);
         break;
     }
     return;
   }
-  const now = Tone.now();
+  const now = Tone.immediate();
   if (pad === DrumPad.HiHatClosed) {
     sampler!.triggerAttack('F#2', now, vel);
     // closed stick tick: short but not too short
@@ -332,31 +335,33 @@ export function listDrumPads() {
 }
 
 function chokeOpenHiHat() {
+  const now = Tone.immediate();
   if (useSynthFallback) {
     try {
       const bus = ensureSynth();
-      bus.hat.triggerRelease(Tone.now());
+      bus.hat.triggerRelease(now);
     } catch {}
     return;
   }
   // Samples engine: release the Open Hi-Hat note ('A#2')
   try {
-    if (sampler) sampler.triggerRelease('A#2', Tone.now());
+    if (sampler) sampler.triggerRelease('A#2', now);
   } catch {}
 }
 
 function chokeHiHatAll() {
+  const now = Tone.immediate();
   if (useSynthFallback) {
     try {
       const bus = ensureSynth();
-      bus.hat.triggerRelease(Tone.now());
+      bus.hat.triggerRelease(now);
     } catch {}
     return;
   }
   try {
     if (sampler) {
-      sampler.triggerRelease('A#2', Tone.now());
-      sampler.triggerRelease('F#2', Tone.now());
+      sampler.triggerRelease('A#2', now);
+      sampler.triggerRelease('F#2', now);
     }
   } catch {}
 }

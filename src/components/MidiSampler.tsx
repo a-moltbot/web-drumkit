@@ -293,7 +293,13 @@ export default function MidiSampler() {
             <button
               key={p.pad}
               disabled={loading}
-              onClick={() => handlePad(p.pad)}
+              onPointerDown={(e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                handlePad(p.pad);
+              }}
+              onClick={(e) => {
+                if (e.detail === 0) handlePad(p.pad);
+              }}
               className={
                 'relative px-3 py-4 rounded border text-gray-200 active:scale-95 transition ' +
                 (flashPad === p.pad
