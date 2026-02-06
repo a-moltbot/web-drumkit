@@ -5,10 +5,10 @@ import PianoPage from './pages/PianoPage';
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/drum" replace />} />
+      <Route path="/" element={<Navigate to="/piano" replace />} />
       <Route path="/drum" element={<DrumkitPage />} />
       <Route path="/piano" element={<PianoPage />} />
-      <Route path="*" element={<Navigate to="/drum" replace />} />
+      <Route path="*" element={<Navigate to="/piano" replace />} />
     </Routes>
   );
 }
